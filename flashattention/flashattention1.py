@@ -35,6 +35,10 @@ def _flash_attention_forward_kernel(
         kt = tl.load(K + curr_col_range, (j + tl.arange(0, B_c))[:, None] < N, 0.0)
         vt = tl.load(V + curr_col_range, (j + tl.arange(0, B_c))[:, None] < N, 0.0)
 
+        # loop over Q tiles
+        for i in range(0, N, B_r):
+            curr_row_range = row_range + i * d
+            qt = tl.load(Q + curr_row_range, (i + tl.arange(0, B_r))[:, None] < N, 0.0)
 
 
 def flash_attention_forward(
