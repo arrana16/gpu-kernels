@@ -20,12 +20,6 @@ def _flash_attention_forward_kernel(
     row_range = tl.arange(0, B_r)[:, None] * d + tl.arange(0, d)[None, :]
     col_range = tl.arange(0, B_c)[:, None] * d + tl.arange(0, d)[None, :]
 
-    # paper says to initialize full tensors, but we'll assume those get passed in
-    # these will be used to process within the tiles
-    O_i = tl.full((B_r, d), 0.0, tl.float32)
-    l_i = tl.full((B_r,), 0.0, tl.float32)
-    m_i = tl.full((B_r,), float("-inf"), tl.float32)
-
     # iterate over cols (K and V)
     for j in range(0, N, B_c):
         # j gives us the column title to look at
@@ -39,11 +33,25 @@ def _flash_attention_forward_kernel(
         for i in range(0, N, B_r):
             curr_row_range = row_range + i * d
             qt = tl.load(Q + curr_row_range, (i + tl.arange(0, B_r))[:, None] < N, 0.0)
+            o_i = tl.load(O + curr_row_range, (i + tl.arange(0, B_r))[:, None] < N, 0.0)
+
+            rows = i + tl.arange(0, B_r)
+            l_i = tl.load(l + rows, (i + tl.arange(0, B_r)) < N)
+            m_i = tl.load(m + rows, (i + tl.arange(0, B_r)) < N)
 
             s_ij = tl.dot(qt, kt.T) * sm_scale
             m_ij = tl.max(s_ij, axis = 1)
             p_ij = tl.exp(s_ij - m_ij[:, None])
             l_ij = tl.sum(p_ij, axis = 1)
+
+            m_i_new = tl.maximum(m_i, m_ij)
+            l_i_new = tl.exp(m_i-m_i_new) * l_i + tl.exp(m_ij - m_i_new) * l_ij
+            o_i_n = (l_i * tl.exp(m_i-m_i_new)*o_i + tl.exp(m_ij - m_i_new) * p_ij * vt)/l_i_new
+
+            tl.store(O + curr_row_range, o_i_n, (i + tl.arange(0, B_r))[:, None] < N)
+            tl.store(l + rows, l_i_new, (i + tl.arange(0, B_r)) < N)
+            tl.store(m + rows, m_i_new, (i + tl.arange(0, B_r)) < N)
+
 
 def flash_attention_forward(
     q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
