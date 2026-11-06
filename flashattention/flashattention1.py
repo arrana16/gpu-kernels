@@ -15,10 +15,14 @@ def _flash_attention_forward_kernel(
     d: tl.constexpr,
     B_r: tl.constexpr,
     B_c: tl.constexpr,
-    BLOCK_D: tl.constexpr,
     sm_scale,
 ):
-    pass
+    row_range = tl.arange(0, B_r)[:, None] * d + tl.arange(0, d)[None, :]
+    col_range = tl.arange(0, B_c)[:, None] * d + tl.arange(0, d)[None, :]
+
+    # iterate over cols (K and V)
+    for j in range(0, N, B_c):
+        pass
 
 def flash_attention_forward(
     q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
