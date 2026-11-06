@@ -7,8 +7,14 @@ import time
 
 import torch
 
-from flashattention.benchmark_flashattention1 import positive_int
 from flashattention.flashattention1 import flash_attention_forward
+
+
+def positive_int(value):
+    number = int(value)
+    if number <= 0:
+        raise argparse.ArgumentTypeError("must be positive")
+    return number
 
 
 def positive_seconds(value):
