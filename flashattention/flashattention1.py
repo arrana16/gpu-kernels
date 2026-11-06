@@ -22,7 +22,12 @@ def _flash_attention_forward_kernel(
 
     # iterate over cols (K and V)
     for j in range(0, N, B_c):
-        pass
+        # j gives us the column title to look at
+        # col_range gives us block dimensions
+        # offset col_range with current tile index
+        curr_col_range = col_range + j * d
+        kt = tl.load(K + curr_col_range, (j + tl.arange(0, B_c))[:, None] < N, 0.0)
+        vt = tl.load(V + curr_col_range, (j + tl.arange(0, B_c))[:, None] < N, 0.0)
 
 def flash_attention_forward(
     q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
