@@ -56,12 +56,66 @@ def _flash_attention_forward_kernel(
 
 
 def flash_attention_forward(
-    q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
+    q: torch.Tensor, k: torch.Tensor, v: torch.Tensor,
+    *, M: int = 32768,
 ) -> torch.Tensor:
     """Return attention output with the same shape as q.
 
     Expected initial contract: q, k, v have shape (B, H, N, D), share a dtype,
-    and are contiguous CUDA tensors. Implement input checks, allocation, and
-    the Triton launch here once the kernel's interface is decided.
+    and are contiguous CUDA tensors. M is a chosen on-chip memory budget in
+    elements, following the paper's abstract memory model; its default is
+    illustrative, not a measured hardware limit.
     """
-    raise NotImplementedError("FlashAttention forward kernel is not implemented yet")
+    if any(x.ndim != 4 for x in (q, k, v)):
+        raise ValueError("q, k, v must have shape (B, H, N, d)")
+    if q.shape != k.shape or q.shape != v.shape:
+        raise ValueError("q, k, v must have identical shapes")
+    if not all(x.is_cuda for x in (q, k, v)):
+        raise ValueError("q, k, v must be CUDA tensors")
+    if q.device != k.device or q.device != v.device:
+        raise ValueError("q, k, v must be on the same device")
+    if q.dtype != k.dtype or q.dtype != v.dtype:
+        raise ValueError("q, k, v must have the same dtype")
+    if q.dtype not in (torch.float16, torch.bfloat16):
+        raise ValueError("This kernel supports float16 and bfloat16 inputs")
+    if not all(x.is_contiguous() for x in (q, k, v)):
+        raise ValueError("q, k, v must be contiguous")
+    B, H, N, d = q.shape
+    if min(B, H, N) <= 0:
+        raise ValueError("Batch size, head count, and sequence length must be positive")
+    if d < 16 or d & (d - 1):
+        raise ValueError("This kernel requires a power-of-two d >= 16")
+    if not isinstance(M, int) or M <= 0:
+        raise ValueError("M must be a positive integer budget in elements")
+
+    # Algorithm 1: B_c = ceil(M / (4d)), B_r = min(B_c, d).
+    B_c = triton.cdiv(M, 4 * d)
+    B_r = min(B_c, d)
+
+    # Adapt the paper's sizes to power-of-two tl.arange dimensions.
+    B_c = 1 << (B_c.bit_length() - 1)
+    B_r = 1 << (B_r.bit_length() - 1)
+    if min(B_r, B_c) < 16:
+        raise ValueError("M is too small for this kernel's dot-product tiles")
+
+    sm_scale = d ** -0.5
+
+    with torch.cuda.device(q.device):
+        # Keep running state in float32 between K/V tiles.
+        O = torch.zeros(q.shape, device=q.device, dtype=torch.float32)
+        l = torch.zeros((B, H, N), device=q.device, dtype=torch.float32)
+        m = torch.full(
+            (B, H, N), float("-inf"), device=q.device, dtype=torch.float32,
+        )
+
+        # The kernel loops over all tiles of one head. Each launch gets
+        # disjoint buffers and exactly one program to avoid state races.
+        for b in range(B):
+            for h in range(H):
+                _flash_attention_forward_kernel[(1,)](
+                    q[b, h], k[b, h], v[b, h],
+                    O[b, h], l[b, h], m[b, h],
+                    N=N, d=d, B_r=B_r, B_c=B_c, sm_scale=sm_scale,
+                )
+
+        return O.to(q.dtype)
