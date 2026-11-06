@@ -36,17 +36,19 @@ def _flash_attention_forward_kernel(
             o_i = tl.load(O + curr_row_range, (i + tl.arange(0, B_r))[:, None] < N, 0.0)
 
             rows = i + tl.arange(0, B_r)
-            l_i = tl.load(l + rows, (i + tl.arange(0, B_r)) < N)
-            m_i = tl.load(m + rows, (i + tl.arange(0, B_r)) < N)
+            l_i = tl.load(l + rows, (i + tl.arange(0, B_r)) < N, 0.0)
+            m_i = tl.load(m + rows, (i + tl.arange(0, B_r)) < N, float("-inf"))
 
             s_ij = tl.dot(qt, kt.T) * sm_scale
+            s_ij = tl.where((j+tl.arange(0, B_c))[None, :] < N, s_ij, float("-inf"))
+
             m_ij = tl.max(s_ij, axis = 1)
             p_ij = tl.exp(s_ij - m_ij[:, None])
             l_ij = tl.sum(p_ij, axis = 1)
 
             m_i_new = tl.maximum(m_i, m_ij)
             l_i_new = tl.exp(m_i-m_i_new) * l_i + tl.exp(m_ij - m_i_new) * l_ij
-            o_i_n = (l_i * tl.exp(m_i-m_i_new)*o_i + tl.exp(m_ij - m_i_new) * p_ij * vt)/l_i_new
+            o_i_n = ((l_i * tl.exp(m_i-m_i_new))[:, None]*o_i + tl.exp(m_ij - m_i_new)[:, None] * tl.dot(p_ij.to(vt.dtype), vt))/l_i_new[:, None]
 
             tl.store(O + curr_row_range, o_i_n, (i + tl.arange(0, B_r))[:, None] < N)
             tl.store(l + rows, l_i_new, (i + tl.arange(0, B_r)) < N)
