@@ -10,7 +10,7 @@ import triton.language as tl
 
 @triton.jit
 def _flash_attention_forward_kernel(
-    Q, K, V, O,
+    Q, K, V, O, l, m,
     N: tl.constexpr,
     d: tl.constexpr,
     B_r: tl.constexpr,
@@ -20,6 +20,12 @@ def _flash_attention_forward_kernel(
     row_range = tl.arange(0, B_r)[:, None] * d + tl.arange(0, d)[None, :]
     col_range = tl.arange(0, B_c)[:, None] * d + tl.arange(0, d)[None, :]
 
+    # paper says to initialize full tensors, but we'll assume those get passed in
+    # these will be used to process within the tiles
+    O_i = tl.full((B_r, d), 0.0, tl.float32)
+    l_i = tl.full((B_r,), 0.0, tl.float32)
+    m_i = tl.full((B_r,), float("-inf"), tl.float32)
+
     # iterate over cols (K and V)
     for j in range(0, N, B_c):
         # j gives us the column title to look at
@@ -28,6 +34,8 @@ def _flash_attention_forward_kernel(
         curr_col_range = col_range + j * d
         kt = tl.load(K + curr_col_range, (j + tl.arange(0, B_c))[:, None] < N, 0.0)
         vt = tl.load(V + curr_col_range, (j + tl.arange(0, B_c))[:, None] < N, 0.0)
+
+
 
 def flash_attention_forward(
     q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
