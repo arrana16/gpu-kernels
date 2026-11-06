@@ -40,6 +40,10 @@ def _flash_attention_forward_kernel(
             curr_row_range = row_range + i * d
             qt = tl.load(Q + curr_row_range, (i + tl.arange(0, B_r))[:, None] < N, 0.0)
 
+            s_ij = tl.dot(qt, kt.T) * sm_scale
+            m_ij = tl.max(s_ij, axis = 1)
+            p_ij = tl.exp(s_ij - m_ij[:, None])
+            l_ij = tl.sum(p_ij, axis = 1)
 
 def flash_attention_forward(
     q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
