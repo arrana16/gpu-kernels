@@ -9,7 +9,16 @@ import triton
 import triton.language as tl
 
 @triton.jit
-
+def _flash_attention_forward_kernel(
+    Q, K, V, O,
+    N: tl.constexpr,
+    d: tl.constexpr,
+    B_r: tl.constexpr,
+    B_c: tl.constexpr,
+    BLOCK_D: tl.constexpr,
+    sm_scale,
+):
+    pass
 
 def flash_attention_forward(
     q: torch.Tensor, k: torch.Tensor, v: torch.Tensor
