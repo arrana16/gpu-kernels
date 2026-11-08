@@ -15,6 +15,7 @@ import torch
 import triton
 
 from flashattention.flashattention1 import flash_attention_forward
+from flashattention.flashattention1_opt import flash_attention_forward as optimized_attention
 from flashattention.stress_flashattention1 import positive_int
 
 
@@ -75,12 +76,16 @@ def run_case(args, n, heads):
     methods = {
         "naive": lambda: naive_attention(q, k, v),
         "flash": lambda: flash_attention_forward(q, k, v, M=args.memory_budget),
+        "flash_opt": lambda: optimized_attention(q, k, v, M=args.memory_budget),
     }
     errors = {}
     tolerance = 2e-2 if q.dtype == torch.bfloat16 else 2e-3
     for name, fn in methods.items():
         output = fn()
-        torch.testing.assert_close(output, expected, atol=tolerance, rtol=tolerance)
+        try:
+            torch.testing.assert_close(output, expected, atol=tolerance, rtol=tolerance)
+        except AssertionError as error:
+            raise AssertionError(f"{name} failed correctness: {error}") from error
         errors[name] = (output.float() - expected.float()).abs().max().item()
         del output
     del expected
@@ -93,10 +98,10 @@ def run_case(args, n, heads):
         # Leading-order QK^T and PV work; excludes softmax and initialization.
         result["tflops"] = 4 * args.batch * heads * n * n * args.head_dim / (result["median_ms"] * 1e9)
         results[name] = result
-    speedup = results["naive"]["median_ms"] / results["flash"]["median_ms"]
     for name, result in results.items():
-        result["flash_speedup"] = speedup
-        print(f"{n:6d} {heads:5d} {name:>6} {result['median_ms']:10.3f} "
+        speedup = results["naive"]["median_ms"] / result["median_ms"]
+        result["speedup_vs_naive"] = speedup
+        print(f"{n:6d} {heads:5d} {name:>9} {result['median_ms']:10.3f} "
               f"{result['p95_ms']:10.3f} {result['wall_ms']:10.3f} "
               f"{result['extra_mib']:10.2f} {result['tflops']:9.3f} "
               f"{result['max_abs_error']:10.3g} {speedup:8.3f}x", flush=True)
@@ -132,11 +137,12 @@ def main():
           f"PyTorch {torch.__version__} | Triton {triton.__version__}")
     print(f"B={args.batch}, D={args.head_dim}, dtype={args.dtype}, M={args.memory_budget}, "
           f"seed={args.seed}, warmup={args.warmup}, repeats={args.repeats}")
-    print("Forward only, noncausal, no dropout. Both outputs checked against FP32 attention.")
+    print("Methods: naive, flash (original), flash_opt (Q-tile parallelism and local state).")
+    print("Forward only, noncausal, no dropout. All outputs checked against FP32 attention.")
     print("Times include the complete forward wrapper; exclude compilation and correctness checks.")
     print("Extra MiB: peak live PyTorch allocations above inputs, including output; excludes allocator cache.")
-    print("Speedup = naive median / flash median; >1 means flash is faster.")
-    print(f"{'N':>6} {'Heads':>5} {'Method':>6} {'GPU ms':>10} {'P95 ms':>10} "
+    print("Speedup = naive median / method median; >1 means this method is faster than naive.")
+    print(f"{'N':>6} {'Heads':>5} {'Method':>9} {'GPU ms':>10} {'P95 ms':>10} "
           f"{'Wall ms':>10} {'Extra MiB':>10} {'TFLOP/s':>9} {'Max error':>10} {'Speedup':>9}")
     rows = []
     try:
