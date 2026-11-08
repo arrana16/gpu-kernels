@@ -10,7 +10,7 @@ import triton.language as tl
 
 @triton.jit
 def _flash_attention_forward_kernel(
-    Q, K, V, O, l, m,
+    Q, K, V, O,
     N: tl.constexpr,
     d: tl.constexpr,
     B_r: tl.constexpr,
@@ -101,20 +101,16 @@ def flash_attention_forward(
     sm_scale = d ** -0.5
 
     with torch.cuda.device(q.device):
-        # Keep running state in float32 between K/V tiles.
+        # Running softmax state is local to each program.
         O = torch.zeros(q.shape, device=q.device, dtype=torch.float32)
-        l = torch.zeros((B, H, N), device=q.device, dtype=torch.float32)
-        m = torch.full(
-            (B, H, N), float("-inf"), device=q.device, dtype=torch.float32,
-        )
 
-        # The kernel loops over all tiles of one head. Each launch gets
-        # disjoint buffers and exactly one program to avoid state races.
+        # Each program owns one Q tile and iterates over all K/V tiles.
+        grid = (triton.cdiv(N, B_r),)
         for b in range(B):
             for h in range(H):
-                _flash_attention_forward_kernel[(1,)](
+                _flash_attention_forward_kernel[grid](
                     q[b, h], k[b, h], v[b, h],
-                    O[b, h], l[b, h], m[b, h],
+                    O[b, h],
                     N=N, d=d, B_r=B_r, B_c=B_c, sm_scale=sm_scale,
                 )
 
