@@ -17,8 +17,13 @@ def _flash_attention_forward_kernel(
     B_c: tl.constexpr,
     sm_scale,
 ):
-    row_range = tl.arange(0, B_r)[:, None] * d + tl.arange(0, d)[None, :]
+    row_block_index = tl.program_id(0)
+    row_range = tl.arange(0, B_r)[:, None] * d + tl.arange(0, d)[None, :] + row_block_index * d
     col_range = tl.arange(0, B_c)[:, None] * d + tl.arange(0, d)[None, :]
+
+    m_i = tl.full((B_r,), float("-inf"), tl.float32)
+    l_i = tl.zeros((B_r,), tl.float32)
+    o_i = tl.zeros((B_r, d), tl.float32)
 
     # iterate over cols (K and V)
     for j in range(0, N, B_c):
