@@ -18,7 +18,7 @@ def _flash_attention_forward_kernel(
     sm_scale,
 ):
     row_block_index = tl.program_id(0)
-    row_range = tl.arange(0, B_r)[:, None] * d + tl.arange(0, d)[None, :] + row_block_index * d
+    row_range = tl.arange(0, B_r)[:, None] * d + tl.arange(0, d)[None, :] + row_block_index * B_r * d
     col_range = tl.arange(0, B_c)[:, None] * d + tl.arange(0, d)[None, :]
 
     m_i = tl.full((B_r,), float("-inf"), tl.float32)
@@ -26,7 +26,7 @@ def _flash_attention_forward_kernel(
     o_i = tl.zeros((B_r, d), tl.float32)
 
     # load the q
-    q_i = tl.load(Q + row_range, (row_block_index + tl.arange(0, B_r))[:, None] < N, 0.0)
+    q_i = tl.load(Q + row_range, (row_block_index * B_r + tl.arange(0, B_r))[:, None] < N, 0.0)
 
     # iterate over cols (K and V)
     for j in range(0, N, B_c):
@@ -52,7 +52,7 @@ def _flash_attention_forward_kernel(
         l_i = l_i_new
         o_i = o_i_new
 
-    tl.store(O + row_range, o_i, (row_block_index + tl.arange(0, B_r))[:, None] < N)
+    tl.store(O + row_range, o_i, (row_block_index * B_r + tl.arange(0, B_r))[:, None] < N)
 
 
 def flash_attention_forward(
