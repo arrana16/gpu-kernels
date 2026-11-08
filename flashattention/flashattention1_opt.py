@@ -52,6 +52,8 @@ def _flash_attention_forward_kernel(
         l_i = l_i_new
         o_i = o_i_new
 
+    tl.store(O + row_range, o_i, (row_block_index + tl.arange(0, B_r))[:, None] < N)
+
 
 def flash_attention_forward(
     q: torch.Tensor, k: torch.Tensor, v: torch.Tensor,
