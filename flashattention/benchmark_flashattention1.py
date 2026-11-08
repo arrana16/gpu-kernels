@@ -101,11 +101,37 @@ def run_case(args, n, heads):
     for name, result in results.items():
         speedup = results["naive"]["median_ms"] / result["median_ms"]
         result["speedup_vs_naive"] = speedup
-        print(f"{n:6d} {heads:5d} {name:>9} {result['median_ms']:10.3f} "
-              f"{result['p95_ms']:10.3f} {result['wall_ms']:10.3f} "
-              f"{result['extra_mib']:10.2f} {result['tflops']:9.3f} "
-              f"{result['max_abs_error']:10.3g} {speedup:8.3f}x", flush=True)
+    print_results_table(list(results.values()))
     return list(results.values())
+
+
+def print_results_table(results):
+    """Print one shape's methods together, without repeating shape columns."""
+    headers = ["Method", "GPU ms", "P95 ms", "Wall ms", "Extra MiB",
+               "TFLOP/s", "Max error", "Speedup"]
+    rows = [
+        [r["method"], f"{r['median_ms']:.3f}", f"{r['p95_ms']:.3f}",
+         f"{r['wall_ms']:.3f}", f"{r['extra_mib']:.2f}",
+         f"{r['tflops']:.3f}", f"{r['max_abs_error']:.3g}",
+         f"{r['speedup_vs_naive']:.3f}x"]
+        for r in results
+    ]
+    widths = [max(len(row[c]) for row in [headers, *rows])
+              for c in range(len(headers))]
+    divider = "+" + "+".join("-" * (w + 2) for w in widths) + "+"
+
+    def line(row):
+        return "| " + " | ".join(
+            cell.ljust(widths[c]) if c == 0 else cell.rjust(widths[c])
+            for c, cell in enumerate(row)
+        ) + " |"
+
+    print(divider)
+    print(line(headers))
+    print(divider)
+    for row in rows:
+        print(line(row))
+    print(divider, flush=True)
 
 
 def main():
@@ -142,13 +168,12 @@ def main():
     print("Times include the complete forward wrapper; exclude compilation and correctness checks.")
     print("Extra MiB: peak live PyTorch allocations above inputs, including output; excludes allocator cache.")
     print("Speedup = naive median / method median; >1 means this method is faster than naive.")
-    print(f"{'N':>6} {'Heads':>5} {'Method':>9} {'GPU ms':>10} {'P95 ms':>10} "
-          f"{'Wall ms':>10} {'Extra MiB':>10} {'TFLOP/s':>9} {'Max error':>10} {'Speedup':>9}")
     rows = []
     try:
         for heads in args.heads:
             for n in args.sizes:
-                print(f"Checking and measuring N={n}, heads={heads}...", flush=True)
+                print(f"\nN={n} | Heads={heads} | Batch={args.batch} | D={args.head_dim} "
+                      "— checking and measuring...", flush=True)
                 rows.extend(run_case(args, n, heads))
     except (torch.cuda.OutOfMemoryError, AssertionError) as error:
         parser.exit(1, f"Failed at N={n}, heads={heads}: {error}\n")
