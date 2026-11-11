@@ -44,6 +44,30 @@ modal run gna/modal_app.py::benchmark_flux_attention --repeats 3
 See the [FLUX reproduction notes](gna/flux-reproduction.md) for the measured
 attention timings and the setup for the end-to-end image comparison.
 
+### FLUX 3 Image Klein
+
+Accept access on the [Hugging Face model page](https://huggingface.co/black-forest-labs/flux-3-image-klein)
+with the account used by `HF_TOKEN` in the Modal `huggingface-secret`, then run:
+
+```bash
+modal run -m gna.flux3_model::reproduce_flux3
+```
+
+This pilot generates one native 4096 × 4096 image per case on a B200 with the
+same seed and full scene caption. The GNA case keeps the first 5 of 16 steps
+dense, then uses an 80 × 80 window and 16 × 16 stride for image queries. Joint
+attention keeps text keys available to every image query and text queries dense.
+The command reports dense and GNA pipeline times and their speedup, excluding
+checkpoint loading and file writes. Both cases use tiled VAE decoding. The
+default caption is supplied directly so the separate prompt upsampler is unnecessary.
+
+The Modal image reuses the existing PyTorch and NATTEN layers. The first run
+downloads the new checkpoint components into the `gna-flux` volume. Look in
+`flux3-runs/<run-id>` on that volume for the full-size PNGs, dashboard previews,
+and `timings.json`.
+
+### Profiling
+
 For profiling, open a shell with the same B200 image.
 
 ```bash
