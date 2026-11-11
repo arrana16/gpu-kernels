@@ -1,0 +1,30 @@
+{
+  "gpu": "NVIDIA B200",
+  "torch": "2.12.0+cu130",
+  "flux_revision": "3de623fc3c33e44ffbe2bad470d0f45bccf2eb21",
+  "urae_revision": "52dc41fca55392333bcf3f029ae42ce1327ba906",
+  "prompt": "A sailboat crossing a mountain lake in the morning light",
+  "seed": 0,
+  "steps": 28,
+  "dense_steps_for_gna": 9,
+  "image_token_grid": [
+    256,
+    256
+  ],
+  "window": [
+    80,
+    80
+  ],
+  "cases": {
+    "dense": {
+      "seconds": 117.98478744299996,
+      "gna_calls": 0,
+      "speedup_vs_dense": 1.0
+    },
+    "16x16": {
+      "seconds": 86.60515557100007,
+      "gna_calls": 1083,
+      "speedup_vs_dense": 1.3623298366605259
+    }
+  }
+}
