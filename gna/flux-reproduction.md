@@ -25,16 +25,34 @@ synthetic image attention comparison, which isolates the stride effect with
 fixed window and tile shapes. The paper measures generation separately.
 [NATTEN profiler example](https://natten.org/profiler/#2-d-use-case-flux)
 
-## End-to-end target
+## Run the end-to-end comparison
 
-Use the public [URAE 4K notebook and adapter](https://github.com/Huage001/URAE#4k-resolution-or-higher)
-with the gated [FLUX.1-dev checkpoint](https://huggingface.co/black-forest-labs/FLUX.1-dev).
-Run URAE with dense attention to establish the baseline. In the GNA run, switch
-image queries to NATTEN after step 9 and retain text keys as extra context. Keep
-text queries dense. Use the same checkpoint, adapter, prompt, seed, precision,
-and denoising schedule for each case.
+Accept access to the [FLUX.1-dev checkpoint](https://huggingface.co/black-forest-labs/FLUX.1-dev)
+on Hugging Face. Create a [Modal secret](https://modal.com/docs/guide/secrets)
+named `huggingface` with an `HF_TOKEN` that has access to the checkpoint.
+The run caches the checkpoint in the `gna-flux` Modal volume.
 
-Time generation after model loading, including VAE decoding. Save paired
-images and report the latency ratio separately from the attention benchmark.
-Use the authors' evaluation prompts and metrics to reproduce the quality
-evaluation.
+From the repository root, generate one image with each of the dense and
+`16x16` configurations.
+
+```bash
+modal run -m gna.flux_model::reproduce_flux --cases dense,16x16
+```
+
+To compare all published strides under the same nine-step dense prefix, pass
+`--cases dense,1x1,16x1,16x16`. The app prints the results directory. Download
+it with `modal volume get gna-flux /runs/RUN_ID ./flux-results`.
+
+The app uses the released [URAE 4K adapter and notebook settings](https://github.com/Huage001/URAE#4k-resolution-or-higher)
+and keeps the same prompt, seed, precision, and schedule across cases. On steps
+10–28 of the sparse cases, the attention wrapper sends image queries to NATTEN
+with local image keys and global text keys. Text queries retain dense joint
+attention. The wrapper keeps URAE's rotary embeddings and attention scale.
+
+The wall times include image generation and VAE decoding after model loading.
+This is a reconstruction with the public URAE and NATTEN releases. The wrapper
+handles text queries separately and rearranges image tensors at each attention
+call, which can affect timing compared with the paper. Run multiple paired
+trials and alternate case order for a stable latency comparison. A paired
+sample is a visual check. The paper's aggregate quality evaluation requires its
+evaluation prompts and metrics.
