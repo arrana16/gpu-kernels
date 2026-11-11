@@ -83,7 +83,7 @@ def _joint_attention(query, key, value, *, grid, window, stride, scale):
     gpu="B200",
     timeout=1800,
     volumes={"/cache": cache},
-    secrets=[modal.Secret.from_name("huggingface", required_keys=["HF_TOKEN"])],
+    secrets=[modal.Secret.from_name("huggingface-secret", required_keys=["HF_TOKEN"])],
 )
 def reproduce_flux(
     cases: str = "dense,16x16",

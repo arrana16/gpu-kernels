@@ -29,7 +29,7 @@ fixed window and tile shapes. The paper measures generation separately.
 
 Accept access to the [FLUX.1-dev checkpoint](https://huggingface.co/black-forest-labs/FLUX.1-dev)
 on Hugging Face. Create a [Modal secret](https://modal.com/docs/guide/secrets)
-named `huggingface` with an `HF_TOKEN` that has access to the checkpoint.
+named `huggingface-secret` with an `HF_TOKEN` that has access to the checkpoint.
 The run caches the checkpoint in the `gna-flux` Modal volume.
 
 From the repository root, generate one image with each of the dense and
