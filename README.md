@@ -50,7 +50,7 @@ Accept access on the [Hugging Face model page](https://huggingface.co/black-fore
 with the account used by `HF_TOKEN` in the Modal `huggingface-secret`, then run:
 
 ```bash
-modal run -m gna.flux3_model::reproduce_flux3
+modal run gna/flux-3/flux3_model.py::reproduce_flux3
 ```
 
 This pilot generates one native 4096 × 4096 image per case on a B200 with the
