@@ -14,6 +14,44 @@ source activate-shell.bash
 
 The pinned package versions are in `requirements.lock.txt`. The existing environment at `~/.venvs/triton-gpu` is separate and remains usable; the commands above create a fresh environment inside this repo. The `.venv` directory is excluded from Git.
 
+## GNA on Modal
+
+Install the [Modal CLI](https://modal.com/docs/guide) and authenticate with
+`modal setup`. The [GNA image](gna/modal_app.py) uses Python 3.12,
+PyTorch 2.12.0 with CUDA 13.0, and the matching prebuilt NATTEN 0.21.7 wheel.
+[NATTEN installation instructions](https://natten.org/install/)
+
+From the repository root, build the image on CPU and check that PyTorch, the
+native NATTEN extension, and the profiler load.
+
+```bash
+modal run gna/modal_app.py::build_image
+```
+
+Run the synthetic smoke test to verify a 3D GNA forward pass on a B200.
+
+```bash
+modal run gna/modal_app.py::check_b200
+```
+
+For profiling, open a shell with the same B200 image.
+
+```bash
+modal shell gna/modal_app.py::check_b200
+```
+
+Inside the shell, list the compatible tile configurations for the example token
+grid.
+
+```bash
+python -m natten.profiler --dry-run --backend blackwell-fna \
+  --dtype bf16 -n 24 -d 128 -i 8 16 24 -w 4 8 16 -s 1 4 8
+```
+
+Remove `--dry-run` to collect timings. Exit the shell when finished to release
+the GPU. See the [NATTEN profiler guide](https://natten.org/profiler/) for the
+tile and baseline options.
+
 ## FlashAttention correctness
 
 From the repository root with your environment activated:
