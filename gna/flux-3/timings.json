@@ -1,0 +1,31 @@
+{
+  "model": "black-forest-labs/flux-3-image-klein",
+  "revision": "09561231f44e41381c461caf53d5452005a60ac9",
+  "gpu": "NVIDIA B200",
+  "caption": "Wide landscape photograph from the rocky shore of an alpine lake just after sunrise. A small wooden sailboat with a single cream-colored triangular sail crosses the lake slightly to the left of center, leaving a narrow V-shaped wake. The lower foreground shows smooth wet stones and dark green reeds along the waterline. A band of evergreen trees stretches across the far shore below a range of jagged mountains, whose ridges are lightly dusted with snow. Warm light grazes the peaks from the right while the lake and foreground sit in cool blue shadow. Thin mist hovers over the water behind the boat. The mast, sail, and mountains have soft, slightly rippled reflections. Natural colors, clear detail in the boat and rocks, and a quiet morning atmosphere.",
+  "seed": 0,
+  "image_size": [
+    4096,
+    4096
+  ],
+  "steps": 16,
+  "dense_steps_before_gna": 5,
+  "window": [
+    80,
+    80
+  ],
+  "stride": [
+    16,
+    16
+  ],
+  "output_dir": "flux3-runs/92c70d58747a",
+  "dense": {
+    "seconds": 39.941659715,
+    "gna_attention_calls": 0
+  },
+  "gna-16x16": {
+    "seconds": 28.313367869000004,
+    "gna_attention_calls": 363
+  },
+  "speedup": 1.4106997055172545
+}
