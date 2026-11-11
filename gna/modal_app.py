@@ -60,3 +60,37 @@ def check_b200():
         raise RuntimeError("GNA returned an unexpected shape or non-finite output")
     print(f"{device}, PyTorch {torch.__version__}, NATTEN {natten.__version__}")
     print(f"Blackwell FNA smoke test passed with output shape {tuple(output.shape)}")
+
+
+@app.function(gpu="B200", timeout=300)
+def benchmark_flux_attention(repeats: int = 3):
+    """Profile the 4K FLUX attention shape and the three strides in Table 4."""
+    import subprocess
+    import sys
+
+    if repeats < 1:
+        raise ValueError("repeats must be positive")
+
+    subprocess.run(
+        ["nvidia-smi", "--query-gpu=name,driver_version", "--format=csv,noheader"],
+        check=True,
+    )
+    base = [
+        sys.executable, "-m", "natten.profiler",
+        "--dtype", "fp16", "-b", "1", "-n", "24", "-d", "128",
+        "-i", "256", "256", "--warmup-steps", "10",
+    ]
+    sparse = [
+        "--backend", "blackwell-fna", "--q-tile", "16", "16",
+        "--kv-tile", "16", "8", "-w", "80", "80",
+    ]
+    cases = [
+        ("Dense cuDNN", ["--backend", "cudnn"]),
+        ("Stride 1 x 1", sparse + ["-s", "1", "1"]),
+        ("Stride 16 x 1", sparse + ["-s", "16", "1"]),
+        ("Stride 16 x 16", sparse + ["-s", "16", "16"]),
+    ]
+    for repeat in range(1, repeats + 1):
+        for label, options in cases:
+            print(f"\nFLUX attention, trial {repeat}/{repeats}, {label}", flush=True)
+            subprocess.run(base + options, check=True)

@@ -34,6 +34,16 @@ Run the synthetic smoke test to verify a 3D GNA forward pass on a B200.
 modal run gna/modal_app.py::check_b200
 ```
 
+To rerun the paper's 4K FLUX attention shapes on B200, use the dense baseline
+and the three published strides. The profiler supplies synthetic Q/K/V tensors.
+
+```bash
+modal run gna/modal_app.py::benchmark_flux_attention --repeats 3
+```
+
+See the [FLUX reproduction notes](gna/flux-reproduction.md) for the measured
+attention timings and the setup for the end-to-end image comparison.
+
 For profiling, open a shell with the same B200 image.
 
 ```bash
