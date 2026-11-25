@@ -76,6 +76,8 @@ The output is recorded before the output projection.
 
 ## Cosmos FlashLight replay
 
+[H100 comparison and raw measurements](cosmos-results.md)
+
 Replay a saved capture on an H100 from the repository root. The replay uses
 the capture files already in the `flashlight-cosmos` volume.
 
