@@ -11,7 +11,7 @@ RESOLUTION = "480"
 FPS = 10
 ASPECT_RATIO = "16:9"
 SAMPLE_IMAGE = Path("assets/video2world/input0.jpg")
-PROMPT = "Ocean waves gently wash onto a rocky shore under a clear blue sky."
+PROMPT = "At a city bus terminal at night, the center bus slowly pulls forward and stops."
 NEGATIVE_PROMPT = "Blurry, low-quality video."
 
 
