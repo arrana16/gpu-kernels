@@ -1,4 +1,37 @@
-# Cosmos attention capture for FlashLight
+# FlashLight benchmarks on Modal
+
+## AlphaFold2
+
+The [Figure 4 artifact](https://github.com/bozhiyou/flashlight/blob/mlsys26-ae/benchmarks/run_fig4_evoformer.py)
+times Evoformer's attention calculation at sequence length 256, four heads,
+head dimensions 64 and 128, and batches 1, 2, 4, 8, 16, and 32. Its output
+labels `ipa` and `ipa_compiled` refer to the unfused reference and the
+FlashLight-compiled Evoformer calculation for this sweep.
+
+The separate OpenFold run adapts the [authors' public synthetic-input harness](https://github.com/bozhiyou/flashlight/blob/openfold/benchmarks/benchmark_openfold.py)
+to match [§4.4](https://arxiv.org/html/2511.02043v4#S4.SS4). It uses 48 Evoformer
+blocks, 256 residues and 256 MSA rows, and compiles the row and column attention
+modules in the compiled variants. Eager, stock Inductor, and FlashLight run
+in separate processes with matched seed, model initialization, and synthetic
+features. The test times model forwards after warmup and excludes input
+preparation and compilation. It uses stock OpenFold chunk size with chunk-size
+autotuning disabled so each implementation follows the same schedule.
+
+Both jobs use one H100, public source, and generated benchmark inputs. They
+require no model weights or Hugging Face token. Run from the repository root.
+
+```bash
+modal run --write-result /tmp/evoformer-h100.csv flashlight/alphafold_modal.py::evoformer
+modal run --write-result /tmp/openfold-h100-b1.json flashlight/alphafold_modal.py::openfold
+```
+
+Use `--batch-size` on `openfold` for another paper batch size. The paper reports
+both H100 and A100. These jobs target the H100, with the upstream best-effort
+warmup for the Figure 4 sweep. The OpenFold job records individual timings and
+peak allocated GPU memory. Both write results to the `flashlight-alphafold-results`
+Modal Volume and print the path.
+
+## Cosmos attention capture
 
 This captures the first dense self-attention call in block 0 of NVIDIA's
 Cosmos-Predict2-2B-Video2World 480p, 10 fps checkpoint. It uses the pinned
