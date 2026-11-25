@@ -2,6 +2,8 @@
 
 ## AlphaFold2
 
+[H100 measurements](alphafold-results.md)
+
 The [Figure 4 artifact](https://github.com/bozhiyou/flashlight/blob/mlsys26-ae/benchmarks/run_fig4_evoformer.py)
 times Evoformer's attention calculation at sequence length 256, four heads,
 head dimensions 64 and 128, and batches 1, 2, 4, 8, 16, and 32. Its output
