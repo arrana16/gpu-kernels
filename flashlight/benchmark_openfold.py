@@ -15,12 +15,16 @@ CHUNK_SIZE = 64
 SEED = 0
 
 
-def use_compiled_core(layer, core):
+def use_compiled_core(layer, core, *, contiguous_bias=False):
     def forward(q_x, kv_x, biases=None, **options):
         if any(options.values()):
             raise RuntimeError("The compiled benchmark expects OpenFold's dense attention path")
         q, k, v = layer._prep_qkv(q_x, kv_x)
-        attended = core(q, k, v, biases if biases is not None else [])
+        biases = biases if biases is not None else []
+        if contiguous_bias:
+            # The column path passes a transposed MSA mask that FlashLight cannot tile.
+            biases = [bias.contiguous() for bias in biases]
+        attended = core(q, k, v, biases)
         return layer._wrap_up(attended.transpose(-2, -3), q_x)
 
     layer.forward = forward
@@ -65,8 +69,8 @@ def main(args):
         torch._dynamo.config.cache_size_limit = 65536
         core = torch.compile(_attention, dynamic=False, fullgraph=True)
         for block in model.evoformer.blocks:
-            for attention in (block.msa_att_row.mha, block.msa_att_col._msa_att.mha):
-                use_compiled_core(attention, core)
+            use_compiled_core(block.msa_att_row.mha, core)
+            use_compiled_core(block.msa_att_col._msa_att.mha, core, contiguous_bias=True)
 
     samples = [
         generate_random_batch(config, N_MSA, N_TEMPLATES, N_RES, N_EXTRA_MSA)
