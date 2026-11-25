@@ -30,3 +30,29 @@ eager timings from the FlashLight job. [Paper §4](https://arxiv.org/html/2511.0
 The raw CSVs are in [results](results/). The Modal logs record compilation and
 warmup for the [FlashLight run](https://modal.com/apps/arrana16/main/ap-69a44jIbocJaesPkrR4OrT)
 and the [stock Inductor control](https://modal.com/apps/arrana16/main/ap-KQLZI9YKuceREjvkeI83Tv).
+
+## Full OpenFold model
+
+The FP32 `model_1` run on one H100 used batch size 1, 48 Evoformer blocks, a
+256-by-256 attention grid, four templates, and 1,024 extra MSA rows. The three
+modes used the same synthetic inputs, fixed chunk size of 64, two warmup
+forwards, and five timed forwards. The compiled modes target the row and
+column attention cores.
+
+| Mode | Median latency (s) | Mean latency (s) |
+|---|---:|---:|
+| Eager PyTorch | 3.968 | 3.972 |
+| Stock Inductor | 3.727 | 3.727 |
+| FlashLight | 3.999 | 3.998 |
+
+FlashLight's median was 0.77% slower than eager and 7.29% slower than stock
+Inductor in this configuration. This batch-1 result differs from the 6–9%
+latency reduction reported in the paper. The remaining batch sizes and A100
+are outside this run's coverage. [Paper §4.4](https://arxiv.org/html/2511.02043v4#S4.SS4)
+
+Both FlashLight cores passed a separate comparison with eager on inputs from
+the first Evoformer block. The largest absolute difference was 2.15 × 10⁻⁶
+for row attention and 3.34 × 10⁻⁶ for column attention. [H100 correctness run](https://modal.com/apps/arrana16/main/ap-9YvMQmRmgEPS4SdJ8K3cVO)
+
+The [raw timings](results/openfold-h100-b1.json) include warmup times, peak
+allocated memory, and pinned revisions. [Modal timing run](https://modal.com/apps/arrana16/main/ap-MvbxAG2jqGRuuynDJp8a79)
