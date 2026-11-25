@@ -72,5 +72,25 @@ modal volume get flashlight-cosmos /captures/<run-id> ./cosmos-capture
 all contiguous BF16 in `[batch, tokens, heads, head_dim]` order. `metadata.json`
 records the source strides, scale, model and code revisions, and the stock
 dispatch path. The Q and K tensors already include normalization and RoPE.
-The output is recorded before the output projection. The capture is the input
-fixture for a separate FlashLight replay on PyTorch 2.5.0.
+The output is recorded before the output projection.
+
+## Cosmos FlashLight replay
+
+Replay a saved capture on an H100 from the repository root. The replay uses
+the capture files already in the `flashlight-cosmos` volume.
+
+```bash
+modal run --write-result /tmp/cosmos-replay.json -m flashlight.cosmos_replay_modal::compare --capture-id dba206d5f72e
+```
+
+The replay compares cuDNN SDPA, stock `torch.compile`, and FlashLight in
+separate processes on the same GPU. All three use PyTorch 2.5.0 and the same
+captured Q, K, V, and scale. The two compiler modes start from the same
+explicit attention expression. FlashLight disables the stock attention
+pattern replacement so the artifact's fusion passes see the expression.
+The saved correctness reference comes from the Cosmos PyTorch 2.6.0 capture.
+
+The summary records CUDA-event timings after ten warmups, first-call wall
+time, peak CUDA memory tracked by PyTorch, and numerical error against the
+capture. It measures one attention call on already resident tensors. The
+raw results also go to `/replays` in the `flashlight-cosmos` volume.
