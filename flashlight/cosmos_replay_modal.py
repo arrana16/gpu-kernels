@@ -21,6 +21,7 @@ def compare(capture_id: str, warmups: int = 10, iterations: int = 20):
     import re
     import subprocess
     import sys
+    import sysconfig
     from tempfile import TemporaryDirectory
     from uuid import uuid4
 
@@ -32,13 +33,17 @@ def compare(capture_id: str, warmups: int = 10, iterations: int = 20):
     run_dir = Path("/data/replays") / f"{capture_id}-{uuid4().hex[:12]}"
     run_dir.mkdir(parents=True)
     rows = []
+    wheel_libs = Path(sysconfig.get_path("purelib")) / "nvidia"
+    cuda_libs = [str(wheel_libs / package / "lib") for package in ("cuda_nvrtc", "nvjitlink")]
+    library_path = os.pathsep.join(filter(None, [*cuda_libs, os.environ.get("LD_LIBRARY_PATH")]))
     with TemporaryDirectory(prefix="cosmos-replay-") as cache_dir:
-        for mode in ("cudnn_sdpa", "inductor", "flashlight"):
+        for mode in ("cudnn_sdpa", "inductor", "inductor_unfused", "flashlight"):
             output = run_dir / f"{mode}.json"
             env = dict(
                 os.environ,
                 PYTHONPATH=ARTIFACT_DIR,
                 TORCHINDUCTOR_CACHE_DIR=f"{cache_dir}/{mode}",
+                LD_LIBRARY_PATH=library_path,
             )
             result = subprocess.run(
                 [

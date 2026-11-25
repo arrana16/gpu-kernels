@@ -83,11 +83,11 @@ the capture files already in the `flashlight-cosmos` volume.
 modal run --write-result /tmp/cosmos-replay.json -m flashlight.cosmos_replay_modal::compare --capture-id dba206d5f72e
 ```
 
-The replay compares cuDNN SDPA, stock `torch.compile`, and FlashLight in
-separate processes on the same GPU. All three use PyTorch 2.5.0 and the same
-captured Q, K, V, and scale. The two compiler modes start from the same
-explicit attention expression. FlashLight disables the stock attention
-pattern replacement so the artifact's fusion passes see the expression.
+The replay compares cuDNN SDPA, default `torch.compile`, and FlashLight in
+separate processes on the same GPU. It also measures Inductor with attention
+pattern replacement disabled to isolate the effect of FlashLight's passes.
+Each path uses PyTorch 2.5.0 and the same captured Q, K, V, and scale. All
+compiler modes start from the same explicit attention expression.
 The saved correctness reference comes from the Cosmos PyTorch 2.6.0 capture.
 
 The summary records CUDA-event timings after ten warmups, first-call wall

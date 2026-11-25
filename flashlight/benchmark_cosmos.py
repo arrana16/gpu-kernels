@@ -31,17 +31,18 @@ def main(args):
     query, key, value = (tensors[name].cuda().transpose(1, 2) for name in ("q", "k", "v"))
     scale = metadata["scale"]
 
-    if args.mode == "flashlight":
+    if args.mode in ("inductor_unfused", "flashlight"):
         from monkeypatch import disable_flashattention_replacement
+
+        disable_flashattention_replacement()
+    if args.mode == "flashlight":
         from monkeypatch.fusion import (  # noqa: F401
             block_reduction,
             dependent_reduction_fusion,
             reduction_kernel_fusion,
         )
 
-        disable_flashattention_replacement()
-
-    # Both compiler modes take the same explicit attention expression and settings.
+    # The compiler modes take the same explicit attention expression and settings.
     attention = (
         scaled_dot_product_attention
         if args.mode == "cudnn_sdpa"
@@ -120,7 +121,9 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("mode", choices=("cudnn_sdpa", "inductor", "flashlight"))
+    parser.add_argument(
+        "mode", choices=("cudnn_sdpa", "inductor", "inductor_unfused", "flashlight")
+    )
     parser.add_argument("capture", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument("--warmups", type=int, required=True)
