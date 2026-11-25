@@ -57,6 +57,10 @@ openfold_image = (
         f"git -C {OPENFOLD_ARTIFACT_DIR} checkout --detach FETCH_HEAD",
         f"cp {OPENFOLD_ARTIFACT_DIR}/benchmarks/benchmark_openfold.py /opt/benchmark_openfold_upstream.py",
     )
+    .run_commands(
+        f"git -C {OPENFOLD_ARTIFACT_DIR} fetch --depth 1 https://github.com/bozhiyou/flashlight.git {ARTIFACT_REVISION}",
+        f"git -C {OPENFOLD_ARTIFACT_DIR} checkout --detach FETCH_HEAD",
+    )
     .add_local_file(Path(__file__).with_name("benchmark_openfold.py"), "/opt/benchmark_openfold.py")
 )
 
@@ -147,7 +151,8 @@ def openfold(batch_size: int = 1, warmups: int = 2, iterations: int = 10):
 
     summary = {
         "openfold_revision": OPENFOLD_REVISION,
-        "flashlight_revision": OPENFOLD_ARTIFACT_REVISION,
+        "flashlight_revision": ARTIFACT_REVISION,
+        "synthetic_input_revision": OPENFOLD_ARTIFACT_REVISION,
         "runs": rows,
     }
     text = json.dumps(summary, indent=2) + "\n"

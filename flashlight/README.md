@@ -15,11 +15,11 @@ control, `ipa_compiled` measures stock Inductor.
 The separate OpenFold run adapts the [authors' public synthetic-input harness](https://github.com/bozhiyou/flashlight/blob/openfold/benchmarks/benchmark_openfold.py)
 to match [§4.4](https://arxiv.org/html/2511.02043v4#S4.SS4). It uses 48 Evoformer
 blocks, 256 residues and 256 MSA rows, and compiles the row and column attention
-modules in the compiled variants. Eager, stock Inductor, and FlashLight run
+cores in the compiled variants. Eager, stock Inductor, and FlashLight run
 in separate processes with matched seed, model initialization, and synthetic
 features. The test times model forwards after warmup and excludes input
-preparation and compilation. It uses stock OpenFold chunk size with chunk-size
-autotuning disabled so each implementation follows the same schedule.
+preparation and compilation. It uses a fixed OpenFold chunk size of 64 so
+each implementation follows the same schedule.
 
 Both jobs use one H100, public source, and generated benchmark inputs. They
 require no model weights or Hugging Face token. Run from the repository root.

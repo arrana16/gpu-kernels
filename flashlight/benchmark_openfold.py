@@ -11,7 +11,19 @@ N_RES = 256
 N_MSA = 256
 N_TEMPLATES = 4
 N_EXTRA_MSA = 1024
+CHUNK_SIZE = 64
 SEED = 0
+
+
+def use_compiled_core(layer, core):
+    def forward(q_x, kv_x, biases=None, **options):
+        if any(options.values()):
+            raise RuntimeError("The compiled benchmark expects OpenFold's dense attention path")
+        q, k, v = layer._prep_qkv(q_x, kv_x)
+        attended = core(q, k, v, biases if biases is not None else [])
+        return layer._wrap_up(attended.transpose(-2, -3), q_x)
+
+    layer.forward = forward
 
 
 def main(args):
@@ -21,6 +33,7 @@ def main(args):
     from benchmark_openfold_upstream import generate_random_batch
     from openfold.config import model_config
     from openfold.model.model import AlphaFold
+    from openfold.model.primitives import _attention
     from openfold.utils.tensor_utils import tensor_tree_map
 
     gpu = torch.cuda.get_device_name(0)
@@ -31,6 +44,7 @@ def main(args):
     np.random.seed(SEED)
     torch.manual_seed(SEED)
     config = model_config("model_1")
+    config.globals.chunk_size = CHUNK_SIZE
     config.model.evoformer_stack.blocks_per_ckpt = None
     config.model.evoformer_stack.tune_chunk_size = False
     config.model.extra_msa.extra_msa_stack.tune_chunk_size = False
@@ -49,9 +63,10 @@ def main(args):
 
     if args.mode != "eager":
         torch._dynamo.config.cache_size_limit = 65536
+        core = torch.compile(_attention, dynamic=False, fullgraph=True)
         for block in model.evoformer.blocks:
             for attention in (block.msa_att_row.mha, block.msa_att_col._msa_att.mha):
-                attention.forward = torch.compile(attention.forward, dynamic=False, fullgraph=True)
+                use_compiled_core(attention, core)
 
     samples = [
         generate_random_batch(config, N_MSA, N_TEMPLATES, N_RES, N_EXTRA_MSA)
