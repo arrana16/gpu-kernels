@@ -30,13 +30,19 @@ cosmos_image = (
         f"git init {COSMOS_DIR}",
         f"git -C {COSMOS_DIR} fetch --depth 1 https://github.com/nvidia-cosmos/cosmos-predict2.git {COSMOS_REVISION}",
         f"git -C {COSMOS_DIR} checkout --detach FETCH_HEAD",
-        f"cd {COSMOS_DIR} && uv sync --locked --extra cu126",
+        f"cd {COSMOS_DIR} && uv sync --frozen --extra cu126",
     )
     .add_local_file(
         Path(__file__).with_name("capture_cosmos_attention.py"),
         remote_path="/opt/capture_cosmos_attention.py",
     )
 )
+
+
+@app.local_entrypoint()
+def build_capture_image():
+    """Build the pinned Cosmos environment before requesting a GPU."""
+    cosmos_image.build(app)
 
 
 @checkpoint_app.function(

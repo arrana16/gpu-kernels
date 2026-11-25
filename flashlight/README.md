@@ -21,6 +21,9 @@ The first command checks access before downloading weights. The second caches
 the checkpoints on the `flashlight-cosmos` Volume using CPU. The third requests
 `H100!`, which disables automatic upgrades to H200.
 
+To build the CUDA image ahead of the capture without requesting a GPU, run
+`modal run flashlight/modal_app.py::build_capture_image`.
+
 The capture prints a unique `/captures/<run-id>` path. Download it with:
 
 ```bash
