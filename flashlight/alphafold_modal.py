@@ -51,7 +51,7 @@ openfold_image = (
         f"git -C {OPENFOLD_DIR} checkout --detach FETCH_HEAD",
         # Build the stock extra-MSA CUDA extension for the H100 architecture only.
         f'sed -i \'/^extra_cuda_flags += cc_flag/i cc_flag = ["-gencode", "arch=compute_90,code=sm_90"]\' {OPENFOLD_DIR}/setup.py',
-        f"cd {OPENFOLD_DIR} && MAX_JOBS=2 python setup.py build_ext --inplace",
+        f"cd {OPENFOLD_DIR} && CC=gcc CXX=g++ LDSHARED='gcc -shared' LDCXXSHARED='g++ -shared' MAX_JOBS=2 python setup.py build_ext --inplace",
         f"git init {OPENFOLD_ARTIFACT_DIR}",
         f"git -C {OPENFOLD_ARTIFACT_DIR} fetch --depth 1 https://github.com/bozhiyou/flashlight.git {OPENFOLD_ARTIFACT_REVISION}",
         f"git -C {OPENFOLD_ARTIFACT_DIR} checkout --detach FETCH_HEAD",
