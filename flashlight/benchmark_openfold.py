@@ -10,6 +10,8 @@ from time import perf_counter
 N_RES = 256
 N_MSA = 256
 N_TEMPLATES = 4
+# model_1 appends one MSA row per template before the Evoformer stack.
+N_INPUT_MSA = N_MSA - N_TEMPLATES
 N_EXTRA_MSA = 1024
 CHUNK_SIZE = 64
 SEED = 0
@@ -20,9 +22,11 @@ def use_compiled_core(layer, core, *, contiguous_bias=False):
         if any(options.values()):
             raise RuntimeError("The compiled benchmark expects OpenFold's dense attention path")
         q, k, v = layer._prep_qkv(q_x, kv_x)
+        if q.shape[-2] != N_RES:
+            raise RuntimeError(f"Expected a 256-position attention axis, got {q.shape[-2]}")
         biases = biases if biases is not None else []
         if contiguous_bias:
-            # The column path passes a transposed MSA mask that FlashLight cannot tile.
+            # Normalize the column mask layout for both compiler paths.
             biases = [bias.contiguous() for bias in biases]
         attended = core(q, k, v, biases)
         return layer._wrap_up(attended.transpose(-2, -3), q_x)
@@ -73,7 +77,7 @@ def main(args):
             use_compiled_core(block.msa_att_col._msa_att.mha, core, contiguous_bias=True)
 
     samples = [
-        generate_random_batch(config, N_MSA, N_TEMPLATES, N_RES, N_EXTRA_MSA)
+        generate_random_batch(config, N_INPUT_MSA, N_TEMPLATES, N_RES, N_EXTRA_MSA)
         for _ in range(args.batch_size)
     ]
     batch = {name: torch.stack([sample[name] for sample in samples]) for name in samples[0]}
@@ -112,6 +116,7 @@ def main(args):
         "batch_size": args.batch_size,
         "residues": N_RES,
         "msa_sequences": N_MSA,
+        "input_msa_sequences": N_INPUT_MSA,
         "templates": N_TEMPLATES,
         "extra_msa_sequences": N_EXTRA_MSA,
         "evoformer_blocks": len(model.evoformer.blocks),

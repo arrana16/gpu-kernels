@@ -14,8 +14,9 @@ control, `ipa_compiled` measures stock Inductor.
 
 The separate OpenFold run adapts the [authors' public synthetic-input harness](https://github.com/bozhiyou/flashlight/blob/openfold/benchmarks/benchmark_openfold.py)
 to match [§4.4](https://arxiv.org/html/2511.02043v4#S4.SS4). It uses 48 Evoformer
-blocks, 256 residues and 256 MSA rows, and compiles the row and column attention
-cores in the compiled variants. Eager, stock Inductor, and FlashLight run
+blocks and a 256-by-256 Evoformer MSA grid. OpenFold appends four template
+rows to 252 input MSA rows. The compiled variants target the row and column
+attention cores and normalize the column mask layout. The three variants run
 in separate processes with matched seed, model initialization, and synthetic
 features. The test times model forwards after warmup and excludes input
 preparation and compilation. It uses a fixed OpenFold chunk size of 64 so
