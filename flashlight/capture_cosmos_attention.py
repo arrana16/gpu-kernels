@@ -44,7 +44,6 @@ def capture_attention(args):
     pipe = Video2WorldPipeline.from_config(
         config,
         dit_path=checkpoint,
-        offload_text_encoder=True,
         downcast_text_encoder=True,
         load_prompt_refiner=False,
     )
