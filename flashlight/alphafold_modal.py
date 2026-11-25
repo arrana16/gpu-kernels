@@ -16,11 +16,15 @@ app = modal.App("gpu-kernels-flashlight-alphafold")
 openfold_app = modal.App("gpu-kernels-flashlight-openfold")
 results = modal.Volume.from_name(RESULTS_VOLUME, create_if_missing=True)
 
-torch_image = (
-    modal.Image.debian_slim(python_version="3.12")
-    .apt_install("git", "gcc", "g++")
-    .pip_install("torch==2.5.0+cu121", index_url="https://download.pytorch.org/whl/cu121")
-    .pip_install("numpy<2.3", "tabulate", "nvidia-ml-py")
+
+def with_artifact_torch(image):
+    return image.pip_install(
+        "torch==2.5.0+cu121", index_url="https://download.pytorch.org/whl/cu121"
+    ).pip_install("numpy<2.3", "tabulate", "nvidia-ml-py")
+
+
+torch_image = with_artifact_torch(
+    modal.Image.debian_slim(python_version="3.12").apt_install("git", "gcc", "g++")
 )
 artifact_image = torch_image.run_commands(
     f"git init {ARTIFACT_DIR}",
@@ -28,7 +32,12 @@ artifact_image = torch_image.run_commands(
     f"git -C {ARTIFACT_DIR} checkout --detach FETCH_HEAD",
 )
 openfold_image = (
-    torch_image.pip_install(
+    with_artifact_torch(
+        modal.Image.from_registry(
+            "nvidia/cuda:12.1.1-devel-ubuntu22.04", add_python="3.12"
+        ).apt_install("git", "gcc", "g++")
+    )
+    .pip_install(
         "biopython==1.85",
         "dm-tree==0.1.9",
         "ml-collections==1.0.0",
@@ -40,6 +49,8 @@ openfold_image = (
         f"git init {OPENFOLD_DIR}",
         f"git -C {OPENFOLD_DIR} fetch --depth 1 https://github.com/aqlaboratory/openfold.git {OPENFOLD_REVISION}",
         f"git -C {OPENFOLD_DIR} checkout --detach FETCH_HEAD",
+        # Build the stock extra-MSA CUDA extension for the H100 architecture only.
+        f'sed -i \'/^extra_cuda_flags += cc_flag/i cc_flag = ["-gencode", "arch=compute_90,code=sm_90"]\' {OPENFOLD_DIR}/setup.py',
         f"cd {OPENFOLD_DIR} && MAX_JOBS=2 python setup.py build_ext --inplace",
         f"git init {OPENFOLD_ARTIFACT_DIR}",
         f"git -C {OPENFOLD_ARTIFACT_DIR} fetch --depth 1 https://github.com/bozhiyou/flashlight.git {OPENFOLD_ARTIFACT_REVISION}",
