@@ -62,7 +62,7 @@ openfold_image = (
 
 
 @app.function(image=artifact_image, gpu="H100!", volumes={"/results": results}, timeout=1200)
-def evoformer():
+def evoformer(stock_inductor: bool = False):
     """Run the published Figure 4 Evoformer sweep over batch and head sizes."""
     import os
     import shutil
@@ -77,11 +77,21 @@ def evoformer():
         raise RuntimeError(f"Expected NVIDIA H100, got {gpu}")
 
     run_id = uuid4().hex[:12]
-    run_dir = Path("/results") / f"evoformer-h100-{run_id}"
+    backend = "inductor" if stock_inductor else "flashlight"
+    run_dir = Path("/results") / f"evoformer-{backend}-h100-{run_id}"
     run_dir.mkdir()
     env = dict(os.environ, PYTHONPATH=ARTIFACT_DIR, FL_GPU_CLOCK_FREQ_MHZ="1290")
+    script = Path(ARTIFACT_DIR) / "benchmarks/run_fig4_evoformer.py"
+    if stock_inductor:
+        # Keep the artifact's shapes, settings and timer. Omit its patch activation.
+        source = script.read_text()
+        activation = "\napply_patch()\n"
+        if source.count(activation) != 1:
+            raise RuntimeError("Expected one FlashLight activation in the pinned artifact")
+        script = script.with_stem(f"{script.stem}_stock_inductor")
+        script.write_text(source.replace(activation, "\n", 1))
     subprocess.run(
-        [sys.executable, "benchmarks/run_fig4_evoformer.py"],
+        [sys.executable, "-u", str(script)],
         cwd=ARTIFACT_DIR,
         env=env,
         check=True,

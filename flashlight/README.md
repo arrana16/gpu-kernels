@@ -6,7 +6,9 @@ The [Figure 4 artifact](https://github.com/bozhiyou/flashlight/blob/mlsys26-ae/b
 times Evoformer's attention calculation at sequence length 256, four heads,
 head dimensions 64 and 128, and batches 1, 2, 4, 8, 16, and 32. Its output
 labels `ipa` and `ipa_compiled` refer to the unfused reference and the
-FlashLight-compiled Evoformer calculation for this sweep.
+FlashLight-compiled Evoformer calculation for this sweep. `--stock-inductor`
+runs the same benchmark with FlashLight's patch activation omitted. In that
+control, `ipa_compiled` measures stock Inductor.
 
 The separate OpenFold run adapts the [authors' public synthetic-input harness](https://github.com/bozhiyou/flashlight/blob/openfold/benchmarks/benchmark_openfold.py)
 to match [§4.4](https://arxiv.org/html/2511.02043v4#S4.SS4). It uses 48 Evoformer
